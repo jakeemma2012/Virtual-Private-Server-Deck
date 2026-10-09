@@ -1,0 +1,22 @@
+/* Terminal touch scroll — allow finger-drag to scroll the scrollback on mobile */
+.xterm .xterm-viewport {
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y !important;
+  overscroll-behavior: contain;
+  overflow-y: auto !important;
+}
+
+/* The xterm screen/canvas sit above the viewport and otherwise swallow the
+   touch-scroll gesture (it gets treated as a text selection — drags ~5px then
+   stops). Forcing pan-y here hands vertical drags to the scroller instead. */
+.xterm .xterm-screen,
+.xterm .xterm-screen canvas,
+.xterm .xterm-rows {
+  touch-action: pan-y !important;
+}
+
+/* Monaco editor dark bg */
+.monaco-editor .margin,
+.monaco-editor .monaco-editor-background {
+  background: #0a0a0a !important;
+}

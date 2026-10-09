@@ -1,0 +1,123 @@
+/* ============================================================================
+   Motion layer — "balanced lively" micro-interactions.
+   Rules: only `transform` + `opacity` (GPU-cheap, no layout thrash).
+   Everything degrades to instant under prefers-reduced-motion.
+   Theme-agnostic: uses tokens (var(--foreground) etc.), works in all 10 themes.
+   ========================================================================== */
+
+@keyframes jk-rise {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes jk-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* slight overshoot -> the friendly "soft SaaS" bounce */
+@keyframes jk-pop {
+  0%   { opacity: 0; transform: scale(0.96); }
+  60%  { opacity: 1; transform: scale(1.012); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes jk-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes jk-pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* status dot "breathing" ring */
+@keyframes jk-ping-soft {
+  0%   { opacity: 0.5; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(2.2); }
+}
+
+@layer utilities {
+  /* --- entrance animations --- */
+  .animate-rise { animation: jk-rise 0.38s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-fade { animation: jk-fade 0.3s ease both; }
+  .animate-pop  { animation: jk-pop 0.32s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+
+  /* --- staggered list reveal (no JS): apply .stagger to a parent --- */
+  .stagger > * { animation: jk-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .stagger > *:nth-child(1)  { animation-delay: 0.03s; }
+  .stagger > *:nth-child(2)  { animation-delay: 0.06s; }
+  .stagger > *:nth-child(3)  { animation-delay: 0.09s; }
+  .stagger > *:nth-child(4)  { animation-delay: 0.12s; }
+  .stagger > *:nth-child(5)  { animation-delay: 0.15s; }
+  .stagger > *:nth-child(6)  { animation-delay: 0.18s; }
+  .stagger > *:nth-child(7)  { animation-delay: 0.21s; }
+  .stagger > *:nth-child(8)  { animation-delay: 0.24s; }
+  .stagger > *:nth-child(9)  { animation-delay: 0.27s; }
+  .stagger > *:nth-child(10) { animation-delay: 0.30s; }
+  .stagger > *:nth-child(11) { animation-delay: 0.33s; }
+  .stagger > *:nth-child(12) { animation-delay: 0.36s; }
+  /* cap the cascade so huge lists don't feel slow */
+  .stagger > *:nth-child(n+13) { animation-delay: 0.38s; }
+
+  /* --- hover lift: friendly bounce for clickable cards/rows --- */
+  .hover-lift {
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.2s ease,
+                border-color 0.2s ease;
+    will-change: transform;
+  }
+  .hover-lift:hover { transform: translate3d(0, -3px, 0); }
+  .hover-lift:active { transform: translate3d(0, -1px, 0); }
+
+  /* --- press feedback for tappable things --- */
+  .press { transition: transform 0.12s ease; }
+  .press:active { transform: scale(0.97); }
+
+  /* --- shimmer skeleton --- */
+  .skeleton-shimmer { position: relative; overflow: hidden; }
+  .skeleton-shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--foreground) 9%, transparent),
+      transparent
+    );
+    animation: jk-shimmer 1.5s infinite;
+  }
+
+  /* --- live status dot with breathing ring --- */
+  .status-dot { position: relative; }
+  .status-dot::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    animation: jk-ping-soft 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  .pulse-soft { animation: jk-pulse-soft 1.6s ease-in-out infinite; }
+}
+
+/* ============================================================================
+   Accessibility: honour the OS "reduce motion" setting everywhere.
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .hover-lift:hover,
+  .hover-lift:active,
+  .press:active { transform: none !important; }
+  .status-dot::before { display: none; }
+}

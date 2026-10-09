@@ -1,0 +1,35 @@
+/* Import individual theme files */
+@import './themes/aapanel.css';
+@import './themes/claude.css';
+@import './themes/neobrutualism.css';
+@import './themes/supabase.css';
+@import './themes/vercel.css';
+@import './themes/mono.css';
+@import './themes/notebook.css';
+@import './themes/light-green.css';
+@import './themes/zen.css';
+@import './themes/astro-vista.css';
+@import './themes/whatsapp.css';
+
+body {
+  @apply overscroll-none;
+}
+
+:root {
+  --header-height: calc(var(--spacing, 0.25rem) * 12 + 1px);
+}
+
+/* Mỗi file trong styles/themes/*.css tự khai báo --font-sans / --font-mono /
+   --font-serif cho theme của nó. Ở đây chỉ áp dụng, không đặt lại giá trị:
+   khối này trước đây ghi `--font-sans: initial` rồi `font-family: var(--font-sans)`
+   — tức xoá biến rồi dùng biến vừa xoá, nên font-family thành rỗng.
+
+   Chuỗi fallback cuối là webfont CÓ glyph tiếng Việt (Mulish/JetBrains Mono),
+   đặt sau cùng để chữ có dấu không rơi vào font hệ thống bất định. */
+[data-theme] body {
+  font-family: var(--font-sans), var(--font-mullish), var(--font-inter), sans-serif;
+}
+
+[data-theme] body :is(code, pre, kbd, samp) {
+  font-family: var(--font-mono), var(--font-jetbrains-mono), var(--font-noto-mono), monospace;
+}
