@@ -44,8 +44,10 @@ Thumbs.db
 *.swp
 *~
 
-# Cấu hình công cụ cá nhân (có thể chứa đường dẫn và quyền của riêng máy)
+# Cấu hình công cụ cá nhân: chỉ có ý nghĩa trên máy của người viết, không
+# phải một phần của sản phẩm.
 .claude/
+.opencodereview/
 
 # Log
 *.log
