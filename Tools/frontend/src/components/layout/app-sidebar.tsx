@@ -37,7 +37,7 @@ export default function AppSidebar() {
                   <Icons.rocket className='size-4' />
                 </div>
                 <div className='grid flex-1 text-left text-sm leading-tight'>
-                  <span className='truncate font-medium'>VPS Manager</span>
+                  <span className='truncate font-medium'>VPSDeck</span>
                   <span className='text-muted-foreground truncate text-xs'>Server Tools Panel</span>
                 </div>
               </Link>

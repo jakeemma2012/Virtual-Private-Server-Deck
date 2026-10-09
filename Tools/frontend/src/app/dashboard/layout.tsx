@@ -6,7 +6,7 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'VPS Manager Dashboard',
+  title: 'VPSDeck Dashboard',
   description: 'Manage all your VPS servers from one place',
   robots: { index: false, follow: false }
 };

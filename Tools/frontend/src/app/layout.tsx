@@ -15,7 +15,7 @@ const META_THEME_COLORS = {
 };
 
 export const metadata: Metadata = {
-  title: 'VPS Manager - Server Tools Panel',
+  title: 'VPSDeck — Server Control Panel',
   description: 'Comprehensive VPS Management Dashboard'
 };
 
