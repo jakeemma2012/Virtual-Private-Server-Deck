@@ -53,7 +53,7 @@ set -a && . ./.env && set +a && ./target/release/gateway-rs
 ## Chuyển dữ liệu từ bản Java
 
 ```bash
-./migrate-from-h2.sh        # H2 -> SQLite, 11 server
+./migrate-from-h2.sh        # H2 -> SQLite
 ```
 
 Mật khẩu SSH vào SQLite ở dạng plaintext, rồi **lần khởi động đầu tiên** gateway

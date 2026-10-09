@@ -1,82 +1,96 @@
 # VPSDeck
 
-Bảng điều khiển web để quản lý nhiều VPS qua SSH: duyệt file, terminal, theo
-dõi tài nguyên. Toàn bộ phía server là **một binary Rust duy nhất** — tự phục
-vụ TLS, giao diện web, REST API và WebSocket terminal.
+English | [Tiếng Việt](README.vi.md)
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Rust 1.90+](https://img.shields.io/badge/rust-1.90%2B-orange.svg)](https://www.rust-lang.org)
+[![Node 20+ (build only)](https://img.shields.io/badge/node-20%2B%20(build%20only)-green.svg)](https://nodejs.org)
+
+A web control panel for a fleet of Linux servers: browse files, open a real
+terminal, watch resources. Agentless — the managed machines only need SSH.
+
+The whole server side is **one Rust binary**. It terminates TLS, serves the web
+UI, answers the REST API and carries the terminal WebSocket. No nginx, no Node
+process in production, nothing installed on the machines you manage.
 
 ```
-Trình duyệt ──HTTPS/WSS──> gateway-rs ──SSH/SFTP──> VPS 1..N
-                           (1 tiến trình)
+Browser ──HTTPS/WSS──> vpsdeck gateway ──SSH/SFTP──> server 1..N
+                        (single process)
 ```
-
-Không cần nginx, không cần Node.js chạy nền, không cần cài agent lên VPS được
-quản lý — chỉ cần chúng mở SSH.
 
 ---
 
-## Vì sao có dự án này
+## Why it exists
 
-Bản đầu viết bằng Spring Boot + Next.js chạy sau nginx, và dùng thực tế thì lộ
-ra bốn vấn đề. Chúng đều đã được sửa tận gốc, không phải vá triệu chứng:
+The first version was Spring Boot + Next.js behind nginx. Four problems showed
+up in daily use; each was fixed at the cause, not at the symptom:
 
-| Triệu chứng | Nguyên nhân thật | Cách xử lý |
+| Symptom | Actual cause | Fix |
 |---|---|---|
-| Terminal hỏng chữ tiếng Việt | Decode từng chunk 8KB, ký tự 3 byte bị cắt ngang biên | Gửi **binary frame**, để `xterm.js` tự ghép bằng bộ decode UTF-8 có trạng thái |
-| `tar`/`zip` làm đứt terminal | Bộ đệm WebSocket có trần, vượt là **đóng session** | Backpressure thật: `.await` trên `send`, cửa sổ SSH nhỏ — tiến trình trên VPS tự chậm lại |
-| Thư mục chục nghìn file làm treo trang | Trả cả thư mục, sort ở client, render mọi dòng ra DOM | Phân trang + sắp xếp ở server, virtual scrolling, index SQLite cho tìm kiếm đệ quy |
-| Sắp xếp theo ngày sai | `mtime` là **chuỗi** đã format, so sánh chuỗi trên ngày tháng | `mtime` là epoch số; tên file so theo thứ tự tự nhiên (`file2` trước `file10`) |
+| Vietnamese text broke in the terminal | Each 8 KB chunk was decoded on its own, so 3-byte characters were cut at the boundary | Send **binary frames** and let `xterm.js` reassemble with its stateful UTF-8 decoder |
+| `tar`/`zip` killed the terminal session | The WebSocket send buffer had a ceiling; crossing it **closed the session** | Real backpressure: `await` the send, keep the SSH window small, so the remote process slows down instead |
+| A directory with tens of thousands of files froze the page | The whole directory was returned, sorted in the browser, and every row went into the DOM | Server-side paging and sorting, virtual scrolling, SQLite index for recursive search |
+| Sorting by date was wrong | `mtime` was a **preformatted string**, compared as a string | `mtime` is a numeric epoch; names use natural order (`file2` before `file10`) |
 
-Một số đo đáng chú ý trên VPS thật (Ubuntu 22.04, 4.971 entry): liệt kê thư mục
-bằng `find -printf` mất **138ms**, bằng SFTP `read_dir` mất **1,47s** — nhanh
-hơn 10,6 lần, nên tầng liệt kê dùng `find`, còn SFTP chỉ lo nội dung file.
+Measured on a real server (Ubuntu 22.04, 4,971 entries in one directory):
+listing with `find -printf` takes **138 ms**, the same listing over SFTP
+`read_dir` takes **1.47 s** — 10.6× slower. So listing goes through `find` and
+SFTP is used only for file contents. Streaming a 15.7 MB archive through the
+terminal sustains ~18 MB/s with no dropped bytes and no reconnect.
 
 ---
 
-## Tính năng
+## Features
 
 **File manager**
-- Phân trang phía server, mặc định 1.000 dòng mỗi trang, cuộn tới đâu nạp tới đó
-- Virtual scrolling: thư mục 4.972 file chỉ dựng ~33 `<tr>` trong DOM
-- Sắp xếp ở server: thư mục trước, tên theo thứ tự tự nhiên, ngày theo epoch
-- Tìm trong thư mục hiện tại, và **tìm đệ quy cả cây con** qua index SQLite;
-  chưa có index thì tự chạy `find` để vẫn ra kết quả ngay
-- Tải lên bằng kéo-thả (cả trang là vùng thả), tải xuống theo luồng tới 10GB
-- Sửa file bằng Monaco, xem trước ảnh/video, nén, đổi quyền
-- **Ghim thư mục** theo từng VPS: vào máy đó là mở thẳng chỗ đã ghim
-- **Panel hai cột** kiểu FileZilla: duyệt thư mục trên máy bạn ở bên phải, kéo
-  sang trái để tải lên. Mỗi tab có panel và thư mục riêng.
+- Server-side paging, 1,000 rows per page, fetched as you scroll
+- Virtual scrolling: a directory of 4,972 files keeps ~33 `<tr>` in the DOM
+- Sorting on the server: directories first, natural name order, epoch dates
+- Search the current directory, or **recursively through the whole subtree**
+  via a SQLite index; with no index yet it falls back to `find` so results
+  still appear immediately
+- Drag-and-drop upload (the whole page is a drop zone), streamed download up
+  to 10 GB
+- Monaco editor, image/video preview, archive creation, permission changes
+- **Pinned directory per server**: entering that server opens the pinned path
+- **Dual pane**, FileZilla style: browse your local disk on the right, drag
+  left to upload. Each tab keeps its own pane and its own folder.
 
 **Terminal**
-- `xterm.js` với WebGL renderer, `unicode11`, và khôi phục màn hình khi reconnect
-- Gõ và hiển thị tiếng Việt đúng; reconnect có backoff tăng dần
-- Nhiều tab, mỗi tab một phiên SSH riêng
+- `xterm.js` with the WebGL renderer, `unicode11`, and screen restore on
+  reconnect
+- Vietnamese input and rendering work correctly; reconnect uses exponential
+  backoff
+- Multiple tabs, one SSH session each
 
-**Vận hành**
-- Mật khẩu SSH mã hoá AES-256-GCM, khoá nằm ở biến môi trường (không ở trong DB)
-- Đăng nhập Argon2id + JWT; WebSocket cũng bắt buộc có token
-- Theo dõi CPU/RAM/disk của từng VPS và của chính máy chạy panel
+**Operations**
+- SSH passwords sealed with AES-256-GCM; the key lives in the environment,
+  never in the database
+- Argon2id login, JWT sessions; the WebSocket requires a token too
+- CPU/RAM/disk for every managed server and for the host running the panel
 
 ---
 
-## Yêu cầu
+## Requirements
 
-| | Phiên bản | Dùng cho |
+| | Version | Needed for |
 |---|---|---|
-| Rust | 1.90+ | Build gateway |
-| Node.js | 20+ | Build giao diện (chỉ lúc build, không cần ở production) |
-| VPS được quản lý | SSH + GNU coreutils | Không cần cài gì thêm lên chúng |
+| Rust | 1.90+ | Building the gateway |
+| Node.js | 20+ | Building the web UI (build time only, not in production) |
+| Managed servers | SSH + GNU coreutils | Nothing is installed on them |
 
 ---
 
-## Chạy thử
+## Quick start
 
 ```bash
-# 1. Build giao diện thành file tĩnh
-cd Tools/frontend
-npm install
-npm run build            # ra thư mục out/
+git clone https://github.com/jakeemma2012/vpsdeck.git
+cd vpsdeck
 
-# 2. Cấu hình gateway
+# 1. Build the web UI into static files
+cd Tools/frontend && npm install && npm run build   # -> out/
+
+# 2. Configure the gateway
 cd ../backend/gateway-rs
 umask 077
 {
@@ -88,132 +102,140 @@ umask 077
   echo "JAKE_ADMIN_USER=admin"
   echo "JAKE_ADMIN_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)"
 } > .env
-grep JAKE_ADMIN_PASSWORD .env    # lưu mật khẩu này lại
+grep JAKE_ADMIN_PASSWORD .env     # keep this password
 
-# 3. Chạy
+# 3. Run
+cd ../../.. && ./scripts/vpsdeck.sh start
+```
+
+Open `http://127.0.0.1:8080`, log in, add your first server.
+
+`scripts/vpsdeck.sh` takes `start`, `stop`, `restart`, `status` and `logs`. It
+builds whatever is missing or stale, then runs the single binary. To run the
+binary directly instead:
+
+```bash
+cd Tools/backend/gateway-rs
 cargo build --release
 set -a && . ./.env && set +a
 ./target/release/gateway-rs
 ```
 
-Mở `http://127.0.0.1:8080`, đăng nhập, thêm VPS đầu tiên.
+Full list of environment variables:
+[`Tools/backend/gateway-rs/ENV.md`](Tools/backend/gateway-rs/ENV.md).
 
-Danh sách đầy đủ biến môi trường: [`Tools/backend/gateway-rs/ENV.md`](Tools/backend/gateway-rs/ENV.md).
-
-### Bật HTTPS
+### HTTPS
 
 ```bash
-JAKE_TLS_CERT=/đường/dẫn/fullchain.pem
-JAKE_TLS_KEY=/đường/dẫn/privkey.pem
+JAKE_TLS_CERT=/path/to/fullchain.pem
+JAKE_TLS_KEY=/path/to/privkey.pem
 ```
 
-Nên bật, vì hai lý do ngoài chuyện mã hoá đường truyền: token đi qua WebSocket,
-và panel hai cột cần secure context mới mở được thư mục trên máy người dùng.
+Worth enabling for two reasons beyond transport encryption: the session token
+travels over the WebSocket, and the dual-pane local browser needs a secure
+context to open folders on the user's machine.
 
 ---
 
-## Cấu trúc
+## Layout
 
 ```
 Tools/
-├── backend/gateway-rs/        Gateway Rust — toàn bộ phía server
+├── backend/gateway-rs/        Rust gateway — the entire server side
 │   ├── src/
-│   │   ├── main.rs            Bootstrap, router, TLS, phục vụ file tĩnh
-│   │   ├── config.rs          Cấu hình từ biến môi trường
-│   │   ├── crypto.rs          AES-256-GCM cho mật khẩu SSH
+│   │   ├── main.rs            Bootstrap, router, TLS, static files
+│   │   ├── config.rs          Configuration from the environment
+│   │   ├── crypto.rs          AES-256-GCM for SSH passwords
 │   │   ├── auth.rs            Argon2id + JWT, middleware
-│   │   ├── db.rs              SQLite, model, migration cột
-│   │   ├── ssh.rs             Pool kết nối russh, exec, SFTP
-│   │   ├── terminal.rs        WebSocket terminal
-│   │   ├── files.rs           Liệt kê, phân trang, index, tìm kiếm
-│   │   └── routes.rs          REST handler
-│   ├── migrations/            Schema SQLite
-│   └── migrate-from-h2.sh     Chuyển dữ liệu từ bản Java cũ
+│   │   ├── db.rs              SQLite, models, column migration
+│   │   ├── ssh.rs             russh connection pool, exec, SFTP
+│   │   ├── terminal.rs        Terminal WebSocket
+│   │   ├── files.rs           Listing, paging, indexing, search
+│   │   └── routes.rs          REST handlers
+│   ├── migrations/            SQLite schema
+│   └── migrate-from-h2.sh     Import from the old Java version
 │
-└── frontend/                  Next.js 16, build ra file tĩnh
+└── frontend/                  Next.js 16, exported as static files
     ├── src/lib/
-    │   ├── terminal-core.ts   xterm + addon + giao thức WebSocket
-    │   ├── local-fs.ts        Duyệt file trên máy người dùng
-    │   └── api.ts             Client REST
-    ├── src/app/dashboard/     Các trang
-    └── e2e/                   Test chạy trình duyệt thật
+    │   ├── terminal-core.ts   xterm + addons + WebSocket protocol
+    │   ├── local-fs.ts        Local disk browsing
+    │   └── api.ts             REST client
+    ├── src/app/dashboard/     Pages
+    └── e2e/                   Tests driving a real browser
+
+scripts/vpsdeck.sh             start | stop | restart | status | logs
 ```
+
+Code comments and commit messages are in Vietnamese; everything a user or
+operator reads — this README, `ENV.md`, the control script — is in English.
 
 ---
 
-## Test
+## Tests
 
 ```bash
-# Backend
+# Gateway
 cd Tools/backend/gateway-rs
 cargo test
 cargo clippy -- -D warnings
 
-# Giao diện, chạy Chromium thật
+# Web UI, against a real Chromium
 cd Tools/frontend
 npm i -D playwright && npx playwright install chromium
-BASE=http://127.0.0.1:8080 PW='<mật khẩu admin>' node e2e/test.mjs
+BASE=http://127.0.0.1:8080 PW='<admin password>' node e2e/test.mjs
 ```
 
-Bộ test trình duyệt tồn tại vì typecheck và HTTP status **không đủ**: trang lỗi
-của Next.js vẫn trả 200 OK, và WebGL vẽ terminal vào canvas nên DOM không có
-text để kiểm. Chi tiết và danh sách lỗi mà nó đã bắt được: [`Tools/frontend/e2e/README.md`](Tools/frontend/e2e/README.md).
+The browser suite exists because type checking and HTTP status codes are **not
+enough** here: a Next.js error page still returns 200 OK, and WebGL draws the
+terminal into a canvas, so there is no DOM text to assert on. What it covers
+and which bugs it has caught:
+[`Tools/frontend/e2e/README.md`](Tools/frontend/e2e/README.md).
 
 ---
 
-## Bảo mật
+## Security
 
-Những gì dự án làm:
+What the project does:
 
-- Mật khẩu SSH mã hoá AES-256-GCM; khoá ở biến môi trường, **không** nằm trong
-  file DB. Có file DB mà không có khoá thì không giải mã được.
-- API không bao giờ trả mật khẩu hay khoá riêng ra client, chỉ trả cờ có/không.
-- Mọi đường dẫn do người dùng nhập đều được bọc trước khi vào lệnh shell.
-- `rm -rf` bị chặn ở 18 thư mục hệ thống.
-- WebSocket bắt buộc có token, kiểm trước khi upgrade.
-- Gateway từ chối khởi động nếu thiếu khoá — không có khoá mặc định.
+- SSH passwords are sealed with AES-256-GCM; the key comes from the
+  environment and is **not** stored in the database file. A stolen database
+  without the key decrypts to nothing.
+- The API never returns a password or private key to the client, only a
+  present/absent flag.
+- Every user-supplied path is quoted before it reaches a shell command.
+- `rm -rf` is refused for 18 system directories.
+- The terminal WebSocket requires a valid token, checked before the upgrade.
+- The gateway refuses to start without its keys — there are no defaults.
 
-Những gì **chưa** có, cần biết trước khi mở ra Internet:
+What it does **not** do yet; read this before exposing it to the internet:
 
-- Không giới hạn số lần đăng nhập sai. Hãy đặt mật khẩu mạnh và/hoặc để panel
-  sau VPN, hoặc thêm rate limit ở reverse proxy.
-- Token chưa thu hồi được trước hạn; đổi mật khẩu không làm token cũ hết hiệu
-  lực. Muốn kick ngay thì đổi `JAKE_JWT_SECRET` rồi khởi động lại.
-- Host key của SSH không được ghim (tương đương `StrictHostKeyChecking=no`).
+- No rate limit on failed logins. Use a strong password, put the panel behind
+  a VPN, or add a rate limit at a reverse proxy.
+- Tokens cannot be revoked before they expire, and changing a password does
+  not invalidate existing ones. To kick everyone out, change
+  `JAKE_JWT_SECRET` and restart.
+- SSH host keys are not pinned (equivalent to `StrictHostKeyChecking=no`).
 
-**Backup `JAKE_SECRET_KEY` cùng với file DB.** Mất khoá là mất toàn bộ mật khẩu
-SSH đã lưu, không có đường khôi phục.
+**Back up `JAKE_SECRET_KEY` together with the database file.** Losing the
+key means losing every stored SSH password, with no way back.
 
 ---
 
-## Chuyển từ bản Java cũ
+## Migrating from the Java version
 
 ```bash
 cd Tools/backend/gateway-rs
 ./migrate-from-h2.sh        # H2 -> SQLite
 ```
 
-Script chỉ chạy một lần và từ chối chạy lại khi DB đích đã có dữ liệu. Mật khẩu
-SSH vào SQLite ở dạng rõ, rồi **lần khởi động đầu tiên** gateway tự mã hoá lại.
-Tài khoản đăng nhập không chuyển được (hash bcrypt cũ không tái sử dụng); đặt
-lại bằng `JAKE_ADMIN_USER` / `JAKE_ADMIN_PASSWORD`.
+The script runs once and refuses to run again if the target database already
+has data. SSH passwords land in SQLite as plaintext and are re-sealed on the
+**first** gateway start. Login accounts are not carried over (the old bcrypt
+hashes are not reused); set one with `JAKE_ADMIN_USER` /
+`JAKE_ADMIN_PASSWORD`.
 
 ---
 
-## Review code
+## License
 
-Dự án có bộ luật riêng cho [Open Code Review](https://github.com/alibaba/open-code-review)
-ở `.opencodereview/`, ghi lại những bẫy đã thực sự gặp — UTF-8 cắt ngang biên
-chunk, `calc()` thiếu khoảng trắng, `flex-1` đè `height`, deadlock khi block
-`async` chỉ mượn receiver của mpsc, và nhiều thứ khác.
-
-```bash
-npm i -g @alibaba-group/open-code-review
-ocr delegate preview
-```
-
----
-
-## Giấy phép
-
-MIT — xem [LICENSE](LICENSE).
+MIT © Jake — see [LICENSE](LICENSE).
