@@ -1,0 +1,32 @@
+[package]
+name = "gateway-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+aes-gcm = { version = "0.11.1", features = ["getrandom"] }
+anyhow = "1.0.104"
+argon2 = "0.6.0"
+axum = { version = "0.8.9", features = ["ws", "macros", "multipart"] }
+axum-server = { version = "0.8.0", features = ["tls-rustls-no-provider"] }
+base64 = "0.23.1"
+chrono = "0.4.45"
+futures = "0.3.34"
+jsonwebtoken = { version = "11.1.0", features = ["aws_lc_rs"] }
+russh = "0.64.1"
+russh-sftp = "3.0.1"
+rustls = { version = "0.23.45", default-features = false, features = ["aws-lc-rs"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sqlx = { version = "0.9.0", default-features = false, features = ["runtime-tokio", "tls-rustls-ring", "sqlite", "chrono"] }
+sysinfo = "0.38.4"
+thiserror = "2.0.21"
+tokio = { version = "1.53.2", features = ["full"] }
+tokio-util = { version = "0.7.19", features = ["io"] }
+tower-http = { version = "0.7.1", features = ["fs", "cors", "trace", "compression-gzip", "set-header"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+uuid = { version = "1.27.0", features = ["v4"] }
+
+[dev-dependencies]
+tokio-tungstenite = { version = "0.30.0", features = ["rustls-tls-native-roots"] }
