@@ -1,0 +1,65 @@
+# ============================================================================
+# BÍ MẬT — không bao giờ commit
+#
+# File DB chứa mật khẩu SSH root của các VPS thật (đã mã hoá AES-GCM, nhưng
+# vẫn không được công khai). File .env chứa khoá giải mã chúng — có cả hai là
+# có toàn quyền.
+# ============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+
+# DB và dữ liệu runtime
+data/
+*.db
+*.db-wal
+*.db-shm
+*.mv.db
+*.trace.db
+
+# ============================================================================
+# Kết quả build — sinh lại được
+# ============================================================================
+node_modules/
+.next/
+out/
+target/
+dist/
+build/
+*.tsbuildinfo
+*.jar
+*.class
+
+# ============================================================================
+# Môi trường phát triển cục bộ
+# ============================================================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Cấu hình công cụ cá nhân (có thể chứa đường dẫn và quyền của riêng máy)
+.claude/
+
+# Log
+*.log
+logs/
+
+# ============================================================================
+# Không thuộc dự án này
+#
+# `src/` ở gốc là một dashboard game khác nằm nhờ trong cùng thư mục.
+# `Tools/backend/gateway-api` và `vps-agent` là bản Java cũ đã được thay bằng
+# `gateway-rs`; giữ lại trên máy để đối chiếu, không publish.
+# ============================================================================
+/src/
+/production/
+/Tools/backend/gateway-api/
+/Tools/backend/vps-agent/
+HUONG_DAN_CHAY.md
